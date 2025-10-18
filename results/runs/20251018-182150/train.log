@@ -1,0 +1,63 @@
+2025-10-18 18:21:50,303 - Using device: cuda
+2025-10-18 18:21:50,837 - 混合精度已启用 (AMP)
+2025-10-18 18:28:54,061 - Epoch 1 train_loss=0.480768 steps=1313
+2025-10-18 18:29:43,174 - Epoch 1 val_loss=0.346997 mae=0.350803 rmse=0.511773 rse=0.853254 corr=0.620498
+2025-10-18 18:29:43,339 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 18:36:43,318 - Epoch 2 train_loss=0.408375 steps=1313
+2025-10-18 18:37:31,750 - Epoch 2 val_loss=0.326450 mae=0.328279 rmse=0.479695 rse=0.816462 corr=0.665318
+2025-10-18 18:37:31,928 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 18:44:31,502 - Epoch 3 train_loss=0.382450 steps=1313
+2025-10-18 18:45:19,981 - Epoch 3 val_loss=0.303109 mae=0.308319 rmse=0.461790 rse=0.779383 corr=0.688042
+2025-10-18 18:45:20,143 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 18:52:18,949 - Epoch 4 train_loss=0.367030 steps=1313
+2025-10-18 18:53:07,472 - Epoch 4 val_loss=0.295978 mae=0.304360 rmse=0.459249 rse=0.813618 corr=0.697245
+2025-10-18 18:53:07,716 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 19:00:06,510 - Epoch 5 train_loss=0.358554 steps=1313
+2025-10-18 19:00:55,162 - Epoch 5 val_loss=0.287760 mae=0.297992 rmse=0.450981 rse=0.782150 corr=0.705601
+2025-10-18 19:00:55,314 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 19:07:54,219 - Epoch 6 train_loss=0.348597 steps=1313
+2025-10-18 19:08:42,748 - Epoch 6 val_loss=0.285795 mae=0.297017 rmse=0.452154 rse=0.800797 corr=0.709482
+2025-10-18 19:08:42,966 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 19:15:41,926 - Epoch 7 train_loss=0.343932 steps=1313
+2025-10-18 19:16:30,416 - Epoch 7 val_loss=0.284636 mae=0.297421 rmse=0.448783 rse=0.831446 corr=0.712709
+2025-10-18 19:16:30,583 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 19:23:29,175 - Epoch 8 train_loss=0.337702 steps=1313
+2025-10-18 19:24:17,575 - Epoch 8 val_loss=0.289069 mae=0.301218 rmse=0.448825 rse=0.809713 corr=0.714002
+2025-10-18 19:31:16,763 - Epoch 9 train_loss=0.332727 steps=1313
+2025-10-18 19:32:05,258 - Epoch 9 val_loss=0.283336 mae=0.297408 rmse=0.456283 rse=0.859390 corr=0.711958
+2025-10-18 19:32:05,417 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 19:39:06,823 - Epoch 10 train_loss=0.328745 steps=1313
+2025-10-18 19:39:55,609 - Epoch 10 val_loss=0.286671 mae=0.297823 rmse=0.447992 rse=0.867828 corr=0.716045
+2025-10-18 19:46:58,224 - Epoch 11 train_loss=0.322974 steps=1313
+2025-10-18 19:47:47,196 - Epoch 11 val_loss=0.284792 mae=0.296606 rmse=0.445029 rse=0.813051 corr=0.716436
+2025-10-18 19:54:48,504 - Epoch 12 train_loss=0.322775 steps=1313
+2025-10-18 19:55:37,396 - Epoch 12 val_loss=0.283737 mae=0.297306 rmse=0.450792 rse=0.840505 corr=0.714974
+2025-10-18 20:02:38,904 - Epoch 13 train_loss=0.317295 steps=1313
+2025-10-18 20:03:27,871 - Epoch 13 val_loss=0.283206 mae=0.296804 rmse=0.451604 rse=0.825905 corr=0.711802
+2025-10-18 20:03:28,037 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 20:10:29,989 - Epoch 14 train_loss=0.314662 steps=1313
+2025-10-18 20:11:18,810 - Epoch 14 val_loss=0.282998 mae=0.297332 rmse=0.453318 rse=0.811840 corr=0.712074
+2025-10-18 20:11:18,972 - Saved new best checkpoint to My/results/runs/20251018-182150/best_model.pt
+2025-10-18 20:18:20,479 - Epoch 15 train_loss=0.312015 steps=1313
+2025-10-18 20:19:09,353 - Epoch 15 val_loss=0.295372 mae=0.305936 rmse=0.455212 rse=0.862177 corr=0.709064
+2025-10-18 20:26:11,486 - Epoch 16 train_loss=0.309029 steps=1313
+2025-10-18 20:27:00,367 - Epoch 16 val_loss=0.284910 mae=0.299954 rmse=0.454332 rse=0.821257 corr=0.709658
+2025-10-18 20:34:03,238 - Epoch 17 train_loss=0.305363 steps=1313
+2025-10-18 20:34:51,764 - Epoch 17 val_loss=0.289026 mae=0.301725 rmse=0.457725 rse=0.895503 corr=0.709808
+2025-10-18 20:41:54,030 - Epoch 18 train_loss=0.305729 steps=1313
+2025-10-18 20:42:42,930 - Epoch 18 val_loss=0.288875 mae=0.302466 rmse=0.464197 rse=0.865459 corr=0.706735
+2025-10-18 20:49:46,465 - Epoch 19 train_loss=0.301001 steps=1313
+2025-10-18 20:50:35,731 - Epoch 19 val_loss=0.287274 mae=0.301183 rmse=0.454894 rse=0.829530 corr=0.707524
+2025-10-18 20:57:39,350 - Epoch 20 train_loss=0.300123 steps=1313
+2025-10-18 20:58:28,569 - Epoch 20 val_loss=0.289413 mae=0.303275 rmse=0.462512 rse=0.841537 corr=0.704801
+2025-10-18 21:05:32,304 - Epoch 21 train_loss=0.299106 steps=1313
+2025-10-18 21:06:21,421 - Epoch 21 val_loss=0.290939 mae=0.305353 rmse=0.461712 rse=0.874548 corr=0.705169
+2025-10-18 21:13:25,360 - Epoch 22 train_loss=0.297008 steps=1313
+2025-10-18 21:14:15,244 - Epoch 22 val_loss=0.294535 mae=0.309309 rmse=0.465947 rse=0.942304 corr=0.706680
+2025-10-18 21:21:20,249 - Epoch 23 train_loss=0.296264 steps=1313
+2025-10-18 21:22:10,938 - Epoch 23 val_loss=0.290402 mae=0.307712 rmse=0.469148 rse=0.944854 corr=0.701485
+2025-10-18 21:29:16,828 - Epoch 24 train_loss=0.293795 steps=1313
+2025-10-18 21:30:07,843 - Epoch 24 val_loss=0.286511 mae=0.303309 rmse=0.460136 rse=0.848949 corr=0.705031
+2025-10-18 21:37:13,024 - Epoch 25 train_loss=0.292269 steps=1313
+2025-10-18 21:38:02,513 - Epoch 25 val_loss=0.291211 mae=0.306330 rmse=0.468031 rse=0.879084 corr=0.701225
+2025-10-18 21:45:07,349 - Epoch 26 train_loss=0.291898 steps=1313
