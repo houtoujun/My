@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable
@@ -57,17 +58,22 @@ def evaluate(
             maes.append(float(mae(preds_cpu, y_cpu)))
             rmses.append(float(rmse(preds_cpu, y_cpu)))
             rses_metrics.append(float(rse(preds_cpu, y_cpu)))
+            corr_value = float(corr(preds_cpu, y_cpu))
+            if math.isfinite(corr_value):
+                corrs.append(corr_value)
 
     if not losses:
         return {"loss": float("nan"), "mae": float("nan"), "rmse": float("nan"), "rse": float("nan"), "corr": float("nan")}
 
-    return {
+    metrics = {
         "loss": sum(losses) / len(losses),
         "mae": sum(maes) / len(maes),
         "rmse": sum(rmses) / len(rmses),
         "rse": sum(rses_metrics) / len(rses_metrics),
-        "corr": sum(corrs) / len(corrs),
     }
+    metrics["corr"] = sum(corrs) / len(corrs) if corrs else float("nan")
+
+    return metrics
 
 
 def main() -> None:
