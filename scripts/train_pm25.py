@@ -30,6 +30,7 @@ from My.utils.metrics import mae, rmse, rse, corr
 
 
 TOP_K_CHECKPOINTS = 10
+EARLY_STOP_PATIENCE = 20
 
 
 def load_config(config_path: Path | None) -> Dict[str, Any]:
@@ -275,6 +276,7 @@ def main() -> None:
     start_epoch = 0
     best_val = float("inf")
     best_metrics: Optional[Dict[str, float]] = None
+    epochs_since_improve = 0
 
     if resume_state is not None:
         model.load_state_dict(resume_state["model_state"])
@@ -292,6 +294,7 @@ def main() -> None:
             )
         )
         best_metrics = resume_state.get("best_metrics") or resume_state.get("val_metrics")
+        epochs_since_improve = resume_state.get("epochs_since_improve", 0)
         logger.info(
             "Loaded checkpoint epoch=%d best_val=%.6f",
             start_epoch,
@@ -366,6 +369,7 @@ def main() -> None:
             if is_best:
                 best_val = val_metrics["loss"]
                 best_metrics = val_metrics
+                epochs_since_improve = 0
                 torch.save(
                     {
                         "model_state": model.state_dict(),
@@ -389,6 +393,7 @@ def main() -> None:
                 "val_metrics": val_metrics,
                 "best_metrics": best_metrics or val_metrics,
                 "best_val": best_val,
+                "epochs_since_improve": epochs_since_improve if is_best else epochs_since_improve + 1,
                 "config": cfg,
             }
 
@@ -440,6 +445,17 @@ def main() -> None:
             topk_file.write_text(json.dumps(topk_entries, ensure_ascii=False, indent=2), encoding="utf-8")
 
             torch.save(latest_state, latest_path)
+
+            if is_best:
+                epochs_since_improve = 0
+            else:
+                epochs_since_improve += 1
+                if epochs_since_improve >= EARLY_STOP_PATIENCE:
+                    logger.info(
+                        "验证集连续 %d 轮无提升，触发早停。",
+                        EARLY_STOP_PATIENCE,
+                    )
+                    break
 
     logger.info("Training finished. Best val_loss=%.6f", best_val)
 
