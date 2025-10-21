@@ -1,5 +1,5 @@
 """
-模型测试脚本
+模型测试脚本。
 
 加载训练好的 GMAN_PDFusion 权重，对测试集计算 MAE / RMSE / RSE / CORR 等指标。
 """
@@ -8,12 +8,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable
 
-import numpy as np
 import torch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,19 +36,10 @@ def masked_mae_loss(preds: torch.Tensor, target: torch.Tensor, mask: torch.Tenso
     return ((preds - target).abs() * valid).sum() / denom
 
 
-def _inverse_transform_array(scaler, array: np.ndarray) -> np.ndarray:
-    if scaler is None:
-        return array
-    shape = array.shape
-    restored = scaler.inverse_transform(array.reshape(-1, shape[-1]))
-    return restored.reshape(shape)
-
-
 def evaluate(
     model: GMANPDFusion,
     loader: Iterable[Dict[str, torch.Tensor]],
     device: torch.device,
-    scaler,
 ) -> Dict[str, float]:
     model.eval()
     losses, maes, rmses, rses_metrics, corrs = [], [], [], [], []
@@ -62,40 +51,23 @@ def evaluate(
             mask_y = batch["mask_y"].to(device)
 
             preds = model(X, TE)
-
-            preds_np = preds.detach().cpu().numpy()
-            target_np = y.detach().cpu().numpy()
-            mask_np = mask_y.detach().cpu().numpy()
-
-            preds_inv = _inverse_transform_array(scaler, preds_np)
-            target_inv = _inverse_transform_array(scaler, target_np)
-            valid = 1.0 - mask_np
-            preds_inv = preds_inv * valid + target_inv * (1.0 - valid)
-
-            preds_tensor = torch.from_numpy(preds_inv)
-            target_tensor = torch.from_numpy(target_inv)
-            mask_tensor = torch.from_numpy(mask_np.astype(np.float32))
-
-            losses.append(float(masked_mae_loss(preds_tensor, target_tensor, mask_tensor).item()))
-            maes.append(float(mae(preds_tensor, target_tensor)))
-            rmses.append(float(rmse(preds_tensor, target_tensor)))
-            rses_metrics.append(float(rse(preds_tensor, target_tensor)))
-            corr_value = float(corr(preds_tensor, target_tensor))
-            if math.isfinite(corr_value):
-                corrs.append(corr_value)
+            losses.append(float(masked_mae_loss(preds, y, mask_y).item()))
+            preds_cpu = preds.detach().cpu()
+            y_cpu = y.detach().cpu()
+            maes.append(float(mae(preds_cpu, y_cpu)))
+            rmses.append(float(rmse(preds_cpu, y_cpu)))
+            rses_metrics.append(float(rse(preds_cpu, y_cpu)))
 
     if not losses:
         return {"loss": float("nan"), "mae": float("nan"), "rmse": float("nan"), "rse": float("nan"), "corr": float("nan")}
 
-    metrics = {
+    return {
         "loss": sum(losses) / len(losses),
         "mae": sum(maes) / len(maes),
         "rmse": sum(rmses) / len(rmses),
         "rse": sum(rses_metrics) / len(rses_metrics),
+        "corr": sum(corrs) / len(corrs),
     }
-    metrics["corr"] = sum(corrs) / len(corrs) if corrs else float("nan")
-
-    return metrics
 
 
 def main() -> None:
@@ -103,13 +75,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, required=True, help="训练配置文件路径")
     parser.add_argument("--checkpoint", type=Path, required=True, help="best_model.pt 路径")
     parser.add_argument("--device", type=str, default=None, help="cuda/cpu，默认自动检测")
-    parser.add_argument("--max-test-steps", type=int, default=0, help="测试步数上限；0 表示全量")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=None,
-        help="测试指标保存路径（默认写到 checkpoint 同目录的 test_metrics.json）",
-    )
+    parser.add_argument("--max-test-steps", type=int, default=0, help="测试步数上限（0 表示全量）")
     args = parser.parse_args()
 
     cfg = load_config(args.config)
@@ -125,10 +91,7 @@ def main() -> None:
     _, _, test_loader, metadata = load_pm25_dataloaders(dataset_cfg)
 
     cfg["num_nodes"] = int(metadata["nodes"].shape[0])
-    cfg.setdefault(
-        "time_steps_per_day",
-        int(metadata.get("steps_per_day", cfg.get("time_steps_per_day", 24))),
-    )
+    cfg.setdefault("time_steps_per_day", int(metadata.get("steps_per_day", cfg.get("time_steps_per_day", 24))))
 
     device = (
         torch.device(args.device)
@@ -149,17 +112,9 @@ def main() -> None:
             yield batch
 
     loader_iter = test_loader if args.max_test_steps == 0 else limited_loader()
-    metrics = evaluate(model, loader_iter, device, metadata.get("scaler"))
-    result = {"metrics": metrics, "checkpoint_epoch": state.get("epoch")}
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-
-    output_path = args.output or args.checkpoint.with_name("test_metrics.json")
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(result, f, ensure_ascii=False, indent=2)
-    print(f"Saved metrics to {output_path}")
+    metrics = evaluate(model, loader_iter, device)
+    print(json.dumps({"metrics": metrics, "checkpoint_epoch": state.get("epoch")}, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
     main()
-

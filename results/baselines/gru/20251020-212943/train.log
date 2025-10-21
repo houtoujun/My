@@ -1,0 +1,6 @@
+2025-10-20 21:29:45,665 - 使用设备: cuda
+2025-10-20 21:29:45,666 - 开始训练 GRU，epochs=80
+2025-10-20 21:30:13,103 - Epoch 1 | train_loss=0.408759 | val_loss=0.329345 | val_mae=11.050589 | val_rmse=20.455948
+2025-10-20 21:30:13,111 - 保存新的最佳模型: My\results\baselines\gru\20251020-212943\best_model.pt
+2025-10-20 21:30:40,227 - Epoch 2 | train_loss=0.394034 | val_loss=0.324285 | val_mae=10.862832 | val_rmse=20.127758
+2025-10-20 21:30:40,228 - 保存新的最佳模型: My\results\baselines\gru\20251020-212943\best_model.pt
