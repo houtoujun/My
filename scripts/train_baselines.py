@@ -12,6 +12,7 @@ import argparse
 import json
 import logging
 import sys
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
@@ -177,6 +178,54 @@ def evaluate_traditional_model(
     return compute_metrics_np(preds_np, target_np, mask_np, scaler)
 
 
+def _sanitize_for_json(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {k: _sanitize_for_json(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_sanitize_for_json(v) for v in value]
+    return value
+
+
+def build_run_summary(
+    *,
+    model_name: str,
+    run_dir: Path,
+    cfg: Dict[str, Any],
+    dataset_cfg: PM25DatasetConfig,
+    metadata: Dict[str, Any],
+    best_epoch: int | None,
+    best_val: float,
+    best_metrics: Dict[str, float] | None,
+    train_size: int,
+    val_size: int,
+    test_size: int,
+    checkpoint: str | None,
+) -> Dict[str, Any]:
+    dataset_dict = {k: _sanitize_for_json(v) for k, v in asdict(dataset_cfg).items()}
+    config_dict = {k: _sanitize_for_json(v) for k, v in cfg.items()}
+    nodes = metadata.get("nodes")
+    num_nodes = int(nodes.shape[0]) if nodes is not None else int(cfg.get("num_nodes", 0))
+    summary = {
+        "model": model_name,
+        "timestamp": run_dir.name,
+        "config": config_dict,
+        "dataset": dataset_dict,
+        "num_nodes": num_nodes,
+        "train_samples": int(train_size),
+        "val_samples": int(val_size),
+        "test_samples": int(test_size),
+        "best_epoch": best_epoch,
+        "best_val_loss": float(best_val) if np.isfinite(best_val) else None,
+        "best_val_metrics": _sanitize_for_json(best_metrics) if best_metrics else None,
+        "checkpoint": checkpoint,
+    }
+    return summary
+
+
 def collect_windows(loader) -> Tuple[np.ndarray, np.ndarray]:
     X_list = []
     y_list = []
@@ -198,6 +247,7 @@ def train_torch_model(
     test_loader,
     cfg: Dict[str, Any],
     metadata: Dict[str, Any],
+    dataset_cfg: PM25DatasetConfig,
     args,
 ) -> None:
     run_dir, logger = prepare_run_dir(model_name)
@@ -207,10 +257,32 @@ def train_torch_model(
 
     scaler = metadata.get("scaler")
     best_val = float("inf")
+    best_epoch: int | None = None
+    best_metrics: Dict[str, float] | None = None
     best_path = run_dir / "best_model.pt"
 
-    logger.info("使用设备: %s", device)
-    logger.info("开始训练 %s，epochs=%s", model_name, cfg.get("epochs", args.epochs))
+    logger.info("Using device: %s", device)
+    logger.info("Starting training %s, epochs=%s", model_name, cfg.get("epochs", args.epochs))
+
+    # Save initial configuration snapshot
+    pre_summary = build_run_summary(
+        model_name=model_name,
+        run_dir=run_dir,
+        cfg=cfg,
+        dataset_cfg=dataset_cfg,
+        metadata=metadata,
+        best_epoch=None,
+        best_val=float("inf"),
+        best_metrics=None,
+        train_size=len(train_loader.dataset),
+        val_size=len(val_loader.dataset),
+        test_size=len(test_loader.dataset),
+        checkpoint=None,
+    )
+    pre_summary["device"] = str(device)
+    pre_summary["status"] = "in_progress"
+    with (run_dir / "config.json").open("w", encoding="utf-8") as f:
+        json.dump(pre_summary, f, ensure_ascii=False, indent=2)
 
     epochs = int(cfg.get("epochs", args.epochs))
     for epoch in range(epochs):
@@ -246,6 +318,8 @@ def train_torch_model(
 
         if val_metrics["loss"] < best_val:
             best_val = val_metrics["loss"]
+            best_epoch = epoch + 1
+            best_metrics = val_metrics
             torch.save(
                 {
                     "model_state": model.state_dict(),
@@ -255,12 +329,26 @@ def train_torch_model(
                 },
                 best_path,
             )
-            logger.info("保存新的最佳模型: %s", best_path)
+            logger.info("Saved new best model: %s", best_path)
 
-    logger.info("训练结束，最优验证损失 %.6f", best_val)
+    logger.info("Training finished. Best val_loss=%.6f", best_val)
 
-    with (run_dir / "config.json").open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    summary = build_run_summary(
+        model_name=model_name,
+        run_dir=run_dir,
+        cfg=cfg,
+        dataset_cfg=dataset_cfg,
+        metadata=metadata,
+        best_epoch=best_epoch,
+        best_val=best_val,
+        best_metrics=best_metrics,
+        train_size=len(train_loader.dataset),
+        val_size=len(val_loader.dataset),
+        test_size=len(test_loader.dataset),
+        checkpoint=str(best_path.relative_to(run_dir)) if best_path.exists() else None,
+    )
+    summary["device"] = str(device)
+    summary["status"] = "completed"
 
     if args.run_test and best_path.exists():
         state = torch.load(best_path, map_location=device)
@@ -275,6 +363,10 @@ def train_torch_model(
         )
         with (run_dir / "test_metrics.json").open("w", encoding="utf-8") as f:
             json.dump(test_metrics, f, ensure_ascii=False, indent=2)
+        summary["test_metrics"] = _sanitize_for_json(test_metrics)
+
+    with (run_dir / "config.json").open("w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
 
 
 def train_traditional_model(
@@ -285,23 +377,43 @@ def train_traditional_model(
     test_loader,
     metadata: Dict[str, Any],
     cfg: Dict[str, Any],
+    dataset_cfg: PM25DatasetConfig,
     args,
 ) -> None:
     run_dir, logger = prepare_run_dir(model_name)
     scaler = metadata.get("scaler")
 
+    pre_summary = build_run_summary(
+        model_name=model_name,
+        run_dir=run_dir,
+        cfg=cfg,
+        dataset_cfg=dataset_cfg,
+        metadata=metadata,
+        best_epoch=None,
+        best_val=float("inf"),
+        best_metrics=None,
+        train_size=len(train_loader.dataset),
+        val_size=len(val_loader.dataset),
+        test_size=len(test_loader.dataset),
+        checkpoint=None,
+    )
+    pre_summary["device"] = args.device or "cpu"
+    pre_summary["status"] = "in_progress"
+    with (run_dir / "config.json").open("w", encoding="utf-8") as f:
+        json.dump(pre_summary, f, ensure_ascii=False, indent=2)
+
     if model_name == "ARIMA":
         train_series = train_loader.dataset.series[: metadata["train_end"]]
-        logger.info("训练 ARIMA，使用 %d 条时间步。", train_series.shape[0])
+        logger.info("Training ARIMA with %d time steps", train_series.shape[0])
         model.fit(train_series)
     else:
         X_train, y_train = collect_windows(train_loader)
-        logger.info("训练 SVR，样本数=%d，窗口长度=%d。", X_train.shape[0], X_train.shape[1])
+        logger.info("Training SVR samples=%d window=%d", X_train.shape[0], X_train.shape[1])
         model.fit(X_train, y_train)
 
     ckpt_path = run_dir / "model.joblib"
     model.save(ckpt_path)
-    logger.info("模型已保存到 %s", ckpt_path)
+    logger.info("Model saved to %s", ckpt_path)
 
     val_metrics = evaluate_traditional_model(model, val_loader, scaler)
     logger.info(
@@ -314,6 +426,7 @@ def train_traditional_model(
     with (run_dir / "val_metrics.json").open("w", encoding="utf-8") as f:
         json.dump(val_metrics, f, ensure_ascii=False, indent=2)
 
+    test_metrics = None
     if args.run_test:
         test_metrics = evaluate_traditional_model(model, test_loader, scaler)
         logger.info(
@@ -326,8 +439,26 @@ def train_traditional_model(
         with (run_dir / "test_metrics.json").open("w", encoding="utf-8") as f:
             json.dump(test_metrics, f, ensure_ascii=False, indent=2)
 
+    summary = build_run_summary(
+        model_name=model_name,
+        run_dir=run_dir,
+        cfg=cfg,
+        dataset_cfg=dataset_cfg,
+        metadata=metadata,
+        best_epoch=None,
+        best_val=val_metrics.get("mae", float("nan")),
+        best_metrics=val_metrics,
+        train_size=len(train_loader.dataset),
+        val_size=len(val_loader.dataset),
+        test_size=len(test_loader.dataset),
+        checkpoint=str(ckpt_path.relative_to(run_dir)) if ckpt_path.exists() else None,
+    )
+    summary["device"] = args.device or "cpu"
+    summary["status"] = "completed"
+    if test_metrics is not None:
+        summary["test_metrics"] = _sanitize_for_json(test_metrics)
     with (run_dir / "config.json").open("w", encoding="utf-8") as f:
-        json.dump(cfg, f, ensure_ascii=False, indent=2)
+        json.dump(summary, f, ensure_ascii=False, indent=2)
 
 
 def main() -> None:
@@ -355,19 +486,19 @@ def main() -> None:
     model_name = args.model.upper()
     if model_name == "GRU":
         model = GRUBaseline(cfg, num_nodes=cfg["num_nodes"])
-        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, args)
+        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, dataset_cfg, args)
     elif model_name == "LSTM":
         model = LSTMBaseline(cfg, num_nodes=cfg["num_nodes"])
-        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, args)
+        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, dataset_cfg, args)
     elif model_name == "GCN":
         model = GCNBaseline(cfg, num_nodes=cfg["num_nodes"])
-        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, args)
+        train_torch_model(model_name, model, train_loader, val_loader, test_loader, cfg, metadata, dataset_cfg, args)
     elif model_name == "ARIMA":
         model = ARIMABaseline(cfg, num_nodes=cfg["num_nodes"], num_pred=int(cfg["num_pred"]))
-        train_traditional_model(model_name, model, train_loader, val_loader, test_loader, metadata, cfg, args)
+        train_traditional_model(model_name, model, train_loader, val_loader, test_loader, metadata, cfg, dataset_cfg, args)
     elif model_name == "SVR":
         model = SVRBaseline(cfg, num_nodes=cfg["num_nodes"], num_pred=int(cfg["num_pred"]))
-        train_traditional_model(model_name, model, train_loader, val_loader, test_loader, metadata, cfg, args)
+        train_traditional_model(model_name, model, train_loader, val_loader, test_loader, metadata, cfg, dataset_cfg, args)
     else:
         raise ValueError(f"未知模型 {model_name}")
 
